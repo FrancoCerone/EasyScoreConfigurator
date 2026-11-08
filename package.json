@@ -1,0 +1,13 @@
+{
+  "name": "easyscore-configurator",
+  "version": "1.0.0",
+  "description": "EasyScore Configurator: video, metronomo e spartito a immagini",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

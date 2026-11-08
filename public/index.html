@@ -1,0 +1,1534 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EasyScore Configurator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0e0e10;
+      --surface: #1a1a1e;
+      --surface-2: #222228;
+      --text: #f2f2f4;
+      --muted: #8b8b96;
+      --accent: #f5d000;
+      --border: rgba(255, 255, 255, 0.08);
+      --danger: #f87171;
+      --ok: #4ade80;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: "DM Sans", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(ellipse 60% 40% at 100% -10%, rgba(245, 208, 0, 0.08), transparent 50%),
+        var(--bg);
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.7rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(26, 26, 30, 0.92);
+    }
+    .brand {
+      font-family: "Bebas Neue", sans-serif;
+      letter-spacing: 0.06em;
+      font-size: 1.45rem;
+      line-height: 1;
+    }
+    .brand span { color: var(--accent); }
+    .hint { color: var(--muted); font-size: 0.82rem; margin-top: 0.2rem; max-width: 46rem; }
+    .actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+    button, .ghost {
+      font: inherit;
+      border: 0;
+      border-radius: 999px;
+      padding: 0.55rem 1rem;
+      cursor: pointer;
+    }
+    button.primary { background: var(--accent); color: #16160a; font-weight: 600; }
+    button.primary:disabled { opacity: 0.45; cursor: default; }
+    button.stop { background: #3a2024; color: #fecaca; }
+    button.small, .ghost {
+      background: var(--surface-2);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 0.45rem 0.7rem;
+    }
+    main {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) 1fr;
+    }
+    .side {
+      min-height: 0;
+      overflow: auto;
+      padding: 0.9rem;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+    .stage {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 0.75rem;
+      gap: 0.55rem;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 0.75rem;
+    }
+    h2 {
+      margin: 0 0 0.55rem;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.45rem; }
+    label strong { color: var(--text); font-weight: 500; }
+    input[type="text"], input[type="number"], select {
+      width: 100%;
+      margin-top: 0.25rem;
+      background: #121216;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.45rem 0.55rem;
+      font: inherit;
+    }
+    input[type="range"] { width: 100%; accent-color: var(--accent); }
+    .row { display: flex; gap: 0.45rem; align-items: end; }
+    .row > * { flex: 1; }
+    .yt {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .yt iframe { width: 100%; height: 100%; border: 0; }
+    .yt .empty {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+      padding: 1rem;
+      text-align: center;
+    }
+    .bpm {
+      font-family: "Bebas Neue", sans-serif;
+      font-size: 3.2rem;
+      letter-spacing: 0.04em;
+      line-height: 0.9;
+      color: var(--accent);
+    }
+    .dots { display: flex; gap: 0.35rem; min-height: 1rem; margin: 0.35rem 0; }
+    .dot {
+      width: 0.85rem;
+      height: 0.85rem;
+      border-radius: 50%;
+      background: #2c2c34;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .dot.on { background: var(--accent); box-shadow: 0 0 12px rgba(245, 208, 0, 0.7); }
+    .dot.accent.on { background: #fff6b0; }
+    .count { font-size: 0.95rem; }
+    .count b { color: var(--accent); font-weight: 600; }
+    .checks { display: flex; flex-wrap: wrap; gap: 0.55rem 0.8rem; font-size: 0.85rem; }
+    .checks label { margin: 0; color: var(--text); display: flex; gap: 0.35rem; align-items: center; }
+    label.keep {
+      margin: 0.35rem 0 0;
+      color: var(--text);
+      display: flex;
+      gap: 0.4rem;
+      align-items: flex-start;
+      font-size: 0.85rem;
+    }
+    .tab-bar { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: end; }
+    .tab-bar label { margin: 0; min-width: 7rem; flex: 1; }
+    .frame-wrap {
+      flex: 1;
+      min-height: 240px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #111;
+      position: relative;
+    }
+    #tab-frame { width: 100%; height: 100%; border: 0; background: #111; }
+    #tab-frame[hidden] { display: none !important; }
+    .status {
+      font-size: 0.8rem;
+      color: var(--muted);
+      min-height: 1.1rem;
+    }
+    .status.ok { color: var(--ok); }
+    .status.bad { color: var(--danger); }
+    .source-tools { display: contents; }
+    .source-tools[hidden] { display: none !important; }
+    input[type="file"] {
+      width: 100%;
+      margin-top: 0.25rem;
+      font: inherit;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    button.small.on { outline: 2px solid var(--accent); color: var(--accent); }
+    #sheet-view {
+      position: absolute;
+      inset: 0;
+      overflow: auto;
+      background: #2a2a2e;
+    }
+    #sheet-view[hidden] { display: none; }
+    .sheet-page { position: relative; margin: 0.6rem; background: #fff; }
+    .sheet-page img { display: block; width: 100%; height: auto; user-select: none; }
+    .sheet-layer { position: absolute; inset: 0; }
+    .sheet-layer.drawing { cursor: crosshair; touch-action: none; }
+    .sheet-line {
+      position: absolute;
+      border: 2px solid rgba(245, 208, 0, 0.9);
+      box-sizing: border-box;
+      cursor: move;
+      touch-action: none;
+    }
+    #sheet-view.playing .sheet-line { cursor: default; }
+    #sheet-view.playing .sheet-handle { display: none; }
+    .sheet-handle {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      margin: -6px;
+      background: #1c1c20;
+      border: 2px solid #f5d000;
+      border-radius: 2px;
+      box-sizing: border-box;
+      z-index: 4;
+    }
+    .sheet-handle.n, .sheet-handle.s { left: 50%; cursor: ns-resize; }
+    .sheet-handle.e, .sheet-handle.w { top: 50%; cursor: ew-resize; }
+    .sheet-handle.n { top: 0; }
+    .sheet-handle.s { top: 100%; }
+    .sheet-handle.w { left: 0; }
+    .sheet-handle.e { left: 100%; }
+    .sheet-handle.nw { top: 0; left: 0; cursor: nwse-resize; }
+    .sheet-handle.ne { top: 0; left: 100%; cursor: nesw-resize; }
+    .sheet-handle.sw { top: 100%; left: 0; cursor: nesw-resize; }
+    .sheet-handle.se { top: 100%; left: 100%; cursor: nwse-resize; }
+    .sheet-split {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: rgba(245, 208, 0, 0.55);
+      pointer-events: none;
+    }
+    #sheet-wash {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      background: rgba(245, 208, 0, 0.22);
+      box-shadow: inset 3px 0 0 #f5d000;
+      pointer-events: none;
+    }
+    #sheet-beat {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      margin-left: -1px;
+      background: #f5d000;
+      box-shadow: 0 0 10px rgba(245, 208, 0, 0.9);
+      pointer-events: none;
+    }
+    .sheet-draft {
+      position: absolute;
+      border: 2px dashed var(--accent);
+      background: rgba(245, 208, 0, 0.12);
+      pointer-events: none;
+    }
+    .sheet-empty {
+      color: var(--muted);
+      padding: 2rem 1.2rem;
+      text-align: center;
+      font-size: 0.9rem;
+    }
+    .line-list { display: flex; flex-direction: column; gap: 0.35rem; max-height: 11rem; overflow: auto; }
+    .line-list[hidden] { display: none; }
+    .line-page { font-size: 0.78rem; color: var(--muted); display: flex; justify-content: space-between; gap: 0.4rem; align-items: center; }
+    .line-row { display: flex; gap: 0.4rem; align-items: center; font-size: 0.8rem; }
+    .line-row span { flex: 1; }
+    .line-row input { width: 4.2rem; margin: 0; }
+    @media (max-width: 980px) {
+      body { height: auto; }
+      main { grid-template-columns: 1fr; }
+      .stage { min-height: 80vh; }
+      .side { border-right: 0; border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <div class="brand"><span>EasyScore</span> Configurator</div>
+      <div class="hint">Video e metronomo. Su un’immagine trascini i righi, li sposti e li allunghi dai quadratini; il cursore segue i beat.</div>
+    </div>
+    <div class="actions">
+      <button class="primary" id="start" type="button">Avvia</button>
+      <button class="stop" id="stop" type="button">Stop</button>
+    </div>
+  </header>
+  <main>
+    <section class="side">
+      <div class="card">
+        <h2>Video YouTube</h2>
+        <label>Indirizzo del video
+          <input id="yt-url" type="text" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off" />
+        </label>
+        <div class="row">
+          <button class="small" id="yt-load" type="button">Carica video</button>
+        </div>
+        <div class="yt" id="yt-box" style="margin-top:0.6rem">
+          <div class="empty" id="yt-empty">Nessun video caricato</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Metronomo</h2>
+        <div class="bpm" id="bpm-read">155</div>
+        <label>BPM
+          <input id="bpm" type="range" min="40" max="220" value="155" />
+        </label>
+        <div class="row">
+          <label>Pulsazioni per battuta
+            <input id="per-bar" type="number" min="1" max="12" value="4" />
+          </label>
+          <label>Battute, poi stop
+            <input id="bars" type="number" min="0" max="999" value="16" />
+          </label>
+        </div>
+        <div class="row">
+          <label>Precount
+            <input id="precount" type="number" min="0" max="32" value="8" />
+          </label>
+          <label>Parti dalla battuta
+            <input id="start-bar" type="number" min="1" max="999" value="1" />
+          </label>
+        </div>
+        <div class="dots" id="dots"></div>
+        <div class="count" id="count">In attesa</div>
+        <p class="status" id="metro-math"></p>
+        <label class="keep">
+          <input id="keep-scroll" type="checkbox" checked />
+          Allo stop del click la tab continua a seguire le battute
+        </label>
+      </div>
+
+      <div class="card">
+        <h2>Cosa parte con Avvia</h2>
+        <div class="checks">
+          <label><input id="do-video" type="checkbox" checked /> Video</label>
+          <label><input id="do-metro" type="checkbox" checked /> Metronomo</label>
+          <label><input id="do-scroll" type="checkbox" checked /> Scorrimento tab</label>
+        </div>
+      </div>
+    </section>
+
+    <section class="stage">
+      <div class="tab-bar">
+        <label>Sorgente
+          <select id="source-mode">
+            <option value="songsterr" selected>Songsterr</option>
+            <option value="image">Immagini</option>
+          </select>
+        </label>
+        <div id="songsterr-tools" class="source-tools">
+          <label style="flex:2; min-width:14rem">Pagina Songsterr
+            <input id="tab-url" type="text" value="https://www.songsterr.com/a/wsa/strokes-juicebox-drum-tab-s23717" />
+          </label>
+          <button class="small" id="tab-load" type="button">Ricarica tab</button>
+        </div>
+        <div id="image-tools" class="source-tools" hidden>
+          <label style="min-width:12rem">Immagini dello spartito
+            <input id="sheet-file" type="file" accept="image/*" multiple />
+          </label>
+          <label>Beat nel rigo
+            <input id="line-beats" type="number" min="1" max="128" value="8" />
+          </label>
+          <button class="small" id="draw-line" type="button">Disegna rigo</button>
+          <button class="small" id="clear-lines" type="button">Togli righi</button>
+          <button class="small" id="clear-pages" type="button">Togli immagini</button>
+          <button class="small" id="export-sheet" type="button">Esporta</button>
+          <button class="small" id="import-sheet-btn" type="button">Apri</button>
+          <input id="import-sheet" type="file" accept="application/json,.json,.easyscore,.tabsala" hidden />
+        </div>
+        <button class="small" id="tab-step" type="button">Un passo</button>
+        <button class="small" id="tab-reset" type="button">Inizio</button>
+      </div>
+      <div class="status" id="tab-status">Carico la tab…</div>
+      <div id="line-list" class="line-list" hidden></div>
+      <div class="frame-wrap" id="stage-frame">
+        <iframe
+          id="tab-frame"
+          title="Tab Songsterr"
+          referrerpolicy="no-referrer"
+        ></iframe>
+        <div id="sheet-view" hidden>
+          <div id="sheet-pages"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script>
+    if (navigator.serviceWorker) {
+      navigator.serviceWorker.getRegistrations()
+        .then((regs) => regs.forEach((reg) => reg.unregister()))
+        .catch(() => {});
+    }
+
+    const $ = (id) => document.getElementById(id);
+    const DEFAULT_TAB = 'https://www.songsterr.com/a/wsa/strokes-juicebox-drum-tab-s23717';
+
+    const bpm = $('bpm');
+    const perBar = $('per-bar');
+    const bars = $('bars');
+    const precount = $('precount');
+    const startBar = $('start-bar');
+    let audioCtx = null;
+    let timer = null;
+    let nextNote = 0;
+    let beatIndex = 0;
+    let lastBeatTime = 0;
+    let running = false;
+    let clicksDone = false;
+    let pieceStarted = false;
+    let preLeft = 0;
+    let preTotal = 0;
+    let playFrom = 1;
+    let playBeat = 0;
+    let shownBeat = -1;
+    let stepBar = 1;
+    const scheduled = [];
+
+    function num(el, fallback) {
+      const n = Number(el.value);
+      return Number.isFinite(n) ? n : fallback;
+    }
+    function beatsPerBar() {
+      return Math.max(1, Math.min(12, Math.round(num(perBar, 4))));
+    }
+    function barCount() {
+      return Math.max(0, Math.min(999, Math.round(num(bars, 0))));
+    }
+    function maxBeats() {
+      const b = barCount();
+      return b === 0 ? 0 : b * beatsPerBar();
+    }
+    function precountBeats() {
+      const raw = precount.value.trim();
+      if (raw === '') return 8;
+      const n = Math.round(Number(raw));
+      if (!Number.isFinite(n)) return 8;
+      return Math.max(0, Math.min(32, n));
+    }
+    function startBarNumber() {
+      return Math.max(1, Math.min(999, Math.round(num(startBar, 1)) || 1));
+    }
+    function songBar(index) {
+      return positionAt(index).bar;
+    }
+    function positionAt(index) {
+      const n = beatsPerBar();
+      const abs = (playFrom - 1) * n + playBeat + index;
+      return { bar: Math.floor(abs / n) + 1, beat: abs % n, abs };
+    }
+    function updateMath() {
+      $('bpm-read').textContent = String(Math.round(num(bpm, 72)));
+      const length = barCount();
+      const from = startBarNumber();
+      const end = length ? from + length - 1 : 0;
+      const keep = $('keep-scroll').checked;
+      const intro = precountBeats();
+      const introText = intro ? ` Prima ${intro} click di precount.` : '';
+      const keepText = keep ? ' Poi la tab continua da sola.' : '';
+      const span = length
+        ? (from > 1
+          ? `Dalla battuta ${from} alla ${end}.${keepText}${introText}`
+          : `Il click si ferma dopo ${length} battute.${keepText}${introText} Clicca una battuta sullo spartito per partire da lì.`)
+        : `Battute a 0: metronomo e tab non si fermano da soli.${from > 1 ? ` Parti dalla battuta ${from}.` : ''}${introText}`;
+      $('metro-math').textContent = span;
+      paintDots(shownBeat >= 0 ? shownBeat % beatsPerBar() : -1);
+    }
+
+    function paintDots(active) {
+      const n = beatsPerBar();
+      const box = $('dots');
+      if (box.childElementCount !== n) {
+        box.replaceChildren();
+        for (let i = 0; i < n; i++) {
+          const d = document.createElement('span');
+          d.className = 'dot' + (i === 0 ? ' accent' : '');
+          box.appendChild(d);
+        }
+      }
+      [...box.children].forEach((d, i) => d.classList.toggle('on', i === active));
+    }
+
+    let sheetPages = [];
+    let sheetSeq = 1;
+    let drawMode = false;
+    let sheetReady = false;
+    let imageStatusKey = '';
+
+    function isImageMode() {
+      return $('source-mode').value === 'image';
+    }
+
+    function lineBeatCount() {
+      return Math.max(1, Math.min(128, Math.round(num($('line-beats'), 8)) || 8));
+    }
+
+    function lineBeats(line) {
+      if (line.beats) return Math.max(1, Math.min(128, line.beats));
+      return Math.max(1, Math.min(128, (line.bars || 1) * beatsPerBar()));
+    }
+
+    function highlightBeats(line) {
+      const total = lineBeats(line);
+      const n = Math.round(Number(line.highlight));
+      if (!Number.isFinite(n) || n < 1) return total;
+      return Math.max(1, Math.min(total, n));
+    }
+
+    function clamp01(n) {
+      return Math.max(0, Math.min(1, n));
+    }
+
+    const MIN_LINE_W = 0.02;
+    const MIN_LINE_H = 0.015;
+
+    function placeLine(box, line) {
+      box.style.left = (line.x * 100) + '%';
+      box.style.top = (line.y * 100) + '%';
+      box.style.width = (line.w * 100) + '%';
+      box.style.height = (line.h * 100) + '%';
+    }
+
+    function moveLine(start, dx, dy) {
+      return {
+        x: Math.max(0, Math.min(1 - start.w, start.x + dx)),
+        y: Math.max(0, Math.min(1 - start.h, start.y + dy)),
+        w: start.w,
+        h: start.h,
+      };
+    }
+
+    function resizeLine(start, dx, dy, edge) {
+      let x1 = start.x;
+      let y1 = start.y;
+      let x2 = start.x + start.w;
+      let y2 = start.y + start.h;
+      if (edge.includes('w')) x1 = clamp01(start.x + dx);
+      if (edge.includes('e')) x2 = clamp01(start.x + start.w + dx);
+      if (edge.includes('n')) y1 = clamp01(start.y + dy);
+      if (edge.includes('s')) y2 = clamp01(start.y + start.h + dy);
+      if (x2 < x1) { const swap = x1; x1 = x2; x2 = swap; }
+      if (y2 < y1) { const swap = y1; y1 = y2; y2 = swap; }
+      if (x2 - x1 < MIN_LINE_W) {
+        if (edge.includes('w')) x1 = Math.max(0, x2 - MIN_LINE_W);
+        else x2 = Math.min(1, x1 + MIN_LINE_W);
+      }
+      if (y2 - y1 < MIN_LINE_H) {
+        if (edge.includes('n')) y1 = Math.max(0, y2 - MIN_LINE_H);
+        else y2 = Math.min(1, y1 + MIN_LINE_H);
+      }
+      return { x: x1, y: y1, w: Math.max(MIN_LINE_W, x2 - x1), h: Math.max(MIN_LINE_H, y2 - y1) };
+    }
+
+    function barSpans() {
+      const spans = [];
+      let n = 1;
+      sheetPages.forEach((page) => {
+        page.lines.forEach((line) => {
+          const count = lineBeats(line);
+          spans.push({ page, line, start: n, end: n + count - 1 });
+          n += count;
+        });
+      });
+      return spans;
+    }
+
+    function spanForBeat(beat) {
+      return barSpans().find((span) => beat >= span.start && beat <= span.end) || null;
+    }
+
+    function openSheetDb() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open('tab-sala', 1);
+        req.onupgradeneeded = () => {
+          if (!req.result.objectStoreNames.contains('sheet')) {
+            req.result.createObjectStore('sheet', { keyPath: 'id' });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function persistSheets() {
+      if (!sheetReady) return;
+      openSheetDb().then((db) => {
+        const tx = db.transaction('sheet', 'readwrite');
+        tx.objectStore('sheet').put({
+          id: 'pages',
+          pages: sheetPages.map((page) => ({
+            id: page.id,
+            name: page.name,
+            blob: page.blob,
+            lines: page.lines,
+          })),
+        });
+      }).catch(() => {
+        setStatus('Le immagini restano in questa sessione: salvataggio locale non riuscito', 'bad');
+      });
+    }
+
+    function restoreSheets() {
+      return openSheetDb().then((db) => new Promise((resolve) => {
+        const tx = db.transaction('sheet', 'readonly');
+        const req = tx.objectStore('sheet').get('pages');
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      })).then((record) => {
+        sheetReady = true;
+        if (!record || !record.pages) return;
+        record.pages.forEach((page) => {
+          if (!page.blob) return;
+          const url = URL.createObjectURL(page.blob);
+          sheetPages.push({
+            id: page.id,
+            name: page.name || 'immagine',
+            blob: page.blob,
+            url,
+            lines: Array.isArray(page.lines) ? page.lines : [],
+          });
+          sheetSeq = Math.max(sheetSeq, page.id + 1);
+          page.lines.forEach((line) => {
+            sheetSeq = Math.max(sheetSeq, line.id + 1);
+          });
+        });
+        renderSheets();
+      }).catch(() => {
+        sheetReady = true;
+      });
+    }
+
+    function sortLines(page) {
+      page.lines.sort((a, b) => a.y - b.y || a.x - b.x);
+    }
+
+    function clearSheetMark() {
+      $('sheet-wash')?.remove();
+      $('sheet-beat')?.remove();
+      imageStatusKey = '';
+    }
+
+    function renderSheets() {
+      const root = $('sheet-pages');
+      const hadMark = Boolean($('sheet-wash'));
+      root.replaceChildren();
+      if (!sheetPages.length) {
+        const empty = document.createElement('div');
+        empty.className = 'sheet-empty';
+        empty.textContent = 'Aggiungi una o più immagini. Premi Disegna rigo e trascina un rettangolo. Poi puoi spostarlo o allungarlo dai quadratini.';
+        root.appendChild(empty);
+      }
+      sheetPages.forEach((page) => {
+        sortLines(page);
+        const wrap = document.createElement('div');
+        wrap.className = 'sheet-page';
+        wrap.dataset.pageId = String(page.id);
+        const img = document.createElement('img');
+        img.src = page.url;
+        img.alt = page.name;
+        img.addEventListener('load', () => {
+          if (!running && isImageMode() && $('sheet-wash')) {
+            highlightImageBeat((startBarNumber() - 1) * beatsPerBar() + playBeat + 1);
+          }
+        });
+        const layer = document.createElement('div');
+        layer.className = 'sheet-layer' + (drawMode ? ' drawing' : '');
+        page.lines.forEach((line) => {
+          const box = document.createElement('div');
+          box.className = 'sheet-line';
+          box.dataset.lineId = String(line.id);
+          box.title = 'Trascina per spostare. I quadratini allungano il rigo. Un click sceglie il beat.';
+          placeLine(box, line);
+          const count = lineBeats(line);
+          for (let i = 1; i < count; i++) {
+            const split = document.createElement('div');
+            split.className = 'sheet-split';
+            split.style.left = (i / count * 100) + '%';
+            box.appendChild(split);
+          }
+          ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].forEach((edge) => {
+            const handle = document.createElement('div');
+            handle.className = `sheet-handle ${edge}`;
+            handle.dataset.edge = edge;
+            box.appendChild(handle);
+          });
+          bindLinePointer(box, line, page);
+          layer.appendChild(box);
+        });
+        layer.addEventListener('pointerdown', (ev) => onSheetPointerDown(ev, page, layer));
+        wrap.appendChild(img);
+        wrap.appendChild(layer);
+        root.appendChild(wrap);
+      });
+      renderLineList();
+      if (hadMark && !running) {
+        showFollow(startBarNumber(), playBeat, beatsPerBar());
+      }
+    }
+
+    function renderLineList() {
+      const list = $('line-list');
+      list.replaceChildren();
+      if (!isImageMode()) {
+        list.hidden = true;
+        return;
+      }
+      list.hidden = false;
+      const spans = barSpans();
+      sheetPages.forEach((page, pi) => {
+        const head = document.createElement('div');
+        head.className = 'line-page';
+        const title = document.createElement('span');
+        title.textContent = `Pagina ${pi + 1} · ${page.name}`;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'small';
+        remove.textContent = 'Togli pagina';
+        remove.addEventListener('click', () => removeSheetPage(page.id));
+        head.append(title, remove);
+        list.appendChild(head);
+        page.lines.forEach((line, li) => {
+          const span = spans.find((item) => item.line === line);
+          const row = document.createElement('div');
+          row.className = 'line-row';
+          const label = document.createElement('span');
+          label.textContent = span
+            ? `Rigo ${li + 1} · beat ${span.start}–${span.end}`
+            : `Rigo ${li + 1}`;
+          const beatsInput = document.createElement('input');
+          beatsInput.type = 'number';
+          beatsInput.min = '1';
+          beatsInput.max = '128';
+          beatsInput.value = String(lineBeats(line));
+          beatsInput.title = 'Beat in questo rigo';
+          beatsInput.addEventListener('change', () => {
+            line.beats = Math.max(1, Math.min(128, Math.round(Number(beatsInput.value)) || 1));
+            delete line.bars;
+            if (line.highlight > line.beats) line.highlight = line.beats;
+            persistSheets();
+            renderSheets();
+          });
+          const markName = document.createElement('span');
+          markName.textContent = 'evidenzia';
+          markName.style.flex = '0 0 auto';
+          const markInput = document.createElement('input');
+          markInput.type = 'number';
+          markInput.min = '1';
+          markInput.max = String(lineBeats(line));
+          markInput.value = String(highlightBeats(line));
+          markInput.title = 'Quanti beat tenere evidenziati insieme';
+          markInput.addEventListener('change', () => {
+            line.highlight = Math.max(1, Math.min(lineBeats(line), Math.round(Number(markInput.value)) || 1));
+            persistSheets();
+            renderSheets();
+          });
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'small';
+          del.textContent = 'Elimina';
+          del.addEventListener('click', () => {
+            page.lines = page.lines.filter((item) => item !== line);
+            persistSheets();
+            renderSheets();
+          });
+          row.append(label, beatsInput, markName, markInput, del);
+          list.appendChild(row);
+        });
+      });
+    }
+
+    function bindLinePointer(box, line, page) {
+      box.addEventListener('pointerdown', (ev) => {
+        if (running || ev.button !== 0) return;
+        const handle = ev.target.closest?.('.sheet-handle');
+        ev.stopPropagation();
+        ev.preventDefault();
+        const bounds = box.closest('.sheet-page').getBoundingClientRect();
+        const start = { x: line.x, y: line.y, w: line.w, h: line.h, cx: ev.clientX, cy: ev.clientY };
+        const edge = handle ? handle.dataset.edge : '';
+        let dragged = false;
+        const move = (event) => {
+          const dxPx = event.clientX - start.cx;
+          const dyPx = event.clientY - start.cy;
+          if (!dragged && Math.hypot(dxPx, dyPx) < 4) return;
+          dragged = true;
+          const dx = bounds.width ? (event.clientX - start.cx) / bounds.width : 0;
+          const dy = bounds.height ? (event.clientY - start.cy) / bounds.height : 0;
+          const next = edge ? resizeLine(start, dx, dy, edge) : moveLine(start, dx, dy);
+          line.x = next.x;
+          line.y = next.y;
+          line.w = next.w;
+          line.h = next.h;
+          placeLine(box, line);
+        };
+        const up = (event) => {
+          box.removeEventListener('pointermove', move);
+          box.removeEventListener('pointerup', up);
+          box.removeEventListener('pointercancel', up);
+          if (!dragged) {
+            if (edge || drawMode) return;
+            const span = barSpans().find((item) => item.line === line);
+            if (!span) return;
+            const rect = box.getBoundingClientRect();
+            const t = rect.width ? (event.clientX - rect.left) / rect.width : 0;
+            const count = lineBeats(line);
+            const index = Math.min(count - 1, Math.max(0, Math.floor(t * count)));
+            chooseBeat(span.start + index);
+            return;
+          }
+          sortLines(page);
+          persistSheets();
+          renderSheets();
+          setStatus(edge ? 'Rigo ridimensionato.' : 'Rigo spostato.', 'ok');
+        };
+        box.addEventListener('pointermove', move);
+        box.addEventListener('pointerup', up);
+        box.addEventListener('pointercancel', up);
+        box.setPointerCapture(ev.pointerId);
+      });
+    }
+
+    function onSheetPointerDown(ev, page, layer) {
+      if (!drawMode || running || ev.button !== 0 || ev.target !== layer) return;
+      const pageEl = layer.parentElement;
+      const rect = pageEl.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      ev.preventDefault();
+      const start = {
+        x: clamp01((ev.clientX - rect.left) / rect.width),
+        y: clamp01((ev.clientY - rect.top) / rect.height),
+      };
+      const draft = document.createElement('div');
+      draft.className = 'sheet-draft';
+      layer.appendChild(draft);
+      const move = (event) => {
+        const x = clamp01((event.clientX - rect.left) / rect.width);
+        const y = clamp01((event.clientY - rect.top) / rect.height);
+        draft.style.left = (Math.min(start.x, x) * 100) + '%';
+        draft.style.top = (Math.min(start.y, y) * 100) + '%';
+        draft.style.width = (Math.abs(x - start.x) * 100) + '%';
+        draft.style.height = (Math.abs(y - start.y) * 100) + '%';
+      };
+      const up = (event) => {
+        layer.removeEventListener('pointermove', move);
+        layer.removeEventListener('pointerup', up);
+        draft.remove();
+        const x = clamp01((event.clientX - rect.left) / rect.width);
+        const y = clamp01((event.clientY - rect.top) / rect.height);
+        const line = {
+          id: sheetSeq,
+          x: Math.min(start.x, x),
+          y: Math.min(start.y, y),
+          w: Math.abs(x - start.x),
+          h: Math.abs(y - start.y),
+          beats: lineBeatCount(),
+          highlight: lineBeatCount(),
+        };
+        sheetSeq += 1;
+        if (line.w < 0.02 || line.h < 0.015) return;
+        page.lines.push(line);
+        sortLines(page);
+        persistSheets();
+        renderSheets();
+        const span = barSpans().find((item) => item.line === line);
+        if (span) setStatus(`Rigo segnato, beat ${span.start}–${span.end}.`, 'ok');
+      };
+      layer.addEventListener('pointermove', move);
+      layer.addEventListener('pointerup', up);
+      layer.setPointerCapture(ev.pointerId);
+    }
+
+    function highlightImageBeat(beatNumber) {
+      const span = spanForBeat(beatNumber);
+      if (!span) {
+        clearSheetMark();
+        setStatus(`Beat ${beatNumber} fuori dai righi disegnati.`, 'bad');
+        return;
+      }
+      const pageEl = document.querySelector(`.sheet-page[data-page-id="${span.page.id}"]`);
+      const lineEl = pageEl?.querySelector(`[data-line-id="${span.line.id}"]`);
+      if (!lineEl) return;
+      const count = lineBeats(span.line);
+      const group = highlightBeats(span.line);
+      const index = beatNumber - span.start;
+      const origin = Math.floor(index / group) * group;
+      const widthBeats = Math.min(group, count - origin);
+      const slice = 100 / count;
+      let wash = $('sheet-wash');
+      let cursor = $('sheet-beat');
+      if (!wash) {
+        wash = document.createElement('div');
+        wash.id = 'sheet-wash';
+      }
+      if (!cursor) {
+        cursor = document.createElement('div');
+        cursor.id = 'sheet-beat';
+      }
+      wash.style.left = (origin * slice) + '%';
+      wash.style.width = (widthBeats * slice) + '%';
+      cursor.style.left = (index * slice) + '%';
+      if (wash.parentElement !== lineEl) lineEl.appendChild(wash);
+      if (cursor.parentElement !== lineEl) lineEl.appendChild(cursor);
+      const view = $('sheet-view');
+      const delta = lineEl.getBoundingClientRect().top - view.getBoundingClientRect().top;
+      if (delta < 8 || delta > view.clientHeight * 0.55) view.scrollTop += delta - 16;
+      const key = `${beatNumber}:${span.page.id}:${span.line.id}`;
+      if (key !== imageStatusKey) {
+        imageStatusKey = key;
+        const place = sheetPages.indexOf(span.page) + 1;
+        const bar = Math.floor((beatNumber - 1) / beatsPerBar()) + 1;
+        setStatus(`Beat ${beatNumber} · battuta ${bar} · pagina ${place}`, 'ok');
+      }
+    }
+
+    function showFollow(bar, beat, beats) {
+      if (isImageMode()) highlightImageBeat((bar - 1) * beats + beat + 1);
+      else tabMsg({ cmd: 'follow', bar, beat, beats });
+    }
+
+    function clearFollow() {
+      if (isImageMode()) clearSheetMark();
+      else tabMsg({ cmd: 'stop' });
+    }
+
+    function blobToBase64(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const text = String(reader.result || '');
+          const comma = text.indexOf(',');
+          resolve(comma >= 0 ? text.slice(comma + 1) : text);
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    function downloadBlob(blob, name) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = name;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    }
+
+    function exportFileName() {
+      const raw = (sheetPages[0] && sheetPages[0].name) || 'spartito';
+      const base = raw.replace(/\.[^.]+$/, '').replace(/[^\w\-]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+      return `${base || 'spartito'}.easyscore.json`;
+    }
+
+    function exportSheets() {
+      if (!sheetPages.length) {
+        setStatus('Non c’è uno spartito da esportare.', 'bad');
+        return;
+      }
+      Promise.all(sheetPages.map((page) => blobToBase64(page.blob).then((image) => ({
+        name: page.name,
+        type: page.blob.type || 'image/png',
+        image,
+        lines: page.lines.map((line) => ({
+          x: line.x,
+          y: line.y,
+          w: line.w,
+          h: line.h,
+          beats: lineBeats(line),
+          highlight: highlightBeats(line),
+        })),
+      })))).then((pages) => {
+        const payload = { kind: 'tab-sala', version: 1, pages };
+        const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+        downloadBlob(blob, exportFileName());
+        const lines = pages.reduce((sum, page) => sum + page.lines.length, 0);
+        setStatus(`File esportato: ${pages.length} immagin${pages.length === 1 ? 'e' : 'i'} e ${lines} righ${lines === 1 ? 'o' : 'i'}.`, 'ok');
+      }).catch(() => {
+        setStatus('Export non riuscito.', 'bad');
+      });
+    }
+
+    function pageFromExport(page, index) {
+      const raw = String(page && page.image || '').replace(/\s/g, '');
+      if (!raw) throw new Error('immagine');
+      const type = typeof page.type === 'string' && page.type.startsWith('image/') ? page.type : 'image/png';
+      let binary;
+      try { binary = atob(raw); } catch { throw new Error('immagine'); }
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type });
+      const lines = (Array.isArray(page.lines) ? page.lines : []).map((line) => {
+        const x = Number(line.x);
+        const y = Number(line.y);
+        const w = Number(line.w);
+        const h = Number(line.h);
+        if (![x, y, w, h].every((n) => Number.isFinite(n))) throw new Error('rigo');
+        const beats = Math.max(1, Math.min(128, Math.round(Number(line.beats)) || 8));
+        const highlight = Math.max(1, Math.min(beats, Math.round(Number(line.highlight)) || beats));
+        const width = Math.max(MIN_LINE_W, Math.min(1, w));
+        const height = Math.max(MIN_LINE_H, Math.min(1, h));
+        return {
+          id: sheetSeq++,
+          x: Math.max(0, Math.min(1 - width, x)),
+          y: Math.max(0, Math.min(1 - height, y)),
+          w: width,
+          h: height,
+          beats,
+          highlight,
+        };
+      });
+      return {
+        id: sheetSeq++,
+        name: String(page.name || `pagina ${index + 1}`).slice(0, 120),
+        blob,
+        url: URL.createObjectURL(blob),
+        lines,
+      };
+    }
+
+    function importSheetText(text) {
+      if (running) {
+        setStatus('Ferma il metronomo prima di aprire un file.', 'bad');
+        return;
+      }
+      let doc;
+      try { doc = JSON.parse(text); } catch { doc = null; }
+      if (!doc || doc.kind !== 'tab-sala' || !Array.isArray(doc.pages) || !doc.pages.length) {
+        setStatus('Questo file non è uno spartito di EasyScore Configurator.', 'bad');
+        return;
+      }
+      const built = [];
+      try {
+        doc.pages.forEach((page, index) => built.push(pageFromExport(page, index)));
+      } catch {
+        built.forEach((page) => URL.revokeObjectURL(page.url));
+        setStatus('Il file è incompleto: servono le immagini e i righi.', 'bad');
+        return;
+      }
+      sheetPages.forEach((page) => URL.revokeObjectURL(page.url));
+      sheetPages = built;
+      clearSheetMark();
+      drawMode = false;
+      $('draw-line').classList.remove('on');
+      sheetReady = true;
+      persistSheets();
+      renderSheets();
+      const lines = built.reduce((sum, page) => sum + page.lines.length, 0);
+      setStatus(`Spartito aperto: ${built.length} immagin${built.length === 1 ? 'e' : 'i'} e ${lines} righ${lines === 1 ? 'o' : 'i'}.`, 'ok');
+    }
+
+    function addSheetFiles(files) {
+      const list = [...files].filter((file) => file.type.startsWith('image/'));
+      if (!list.length) {
+        setStatus('Scegli un file immagine.', 'bad');
+        return;
+      }
+      Promise.all(list.map((file) => new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => resolve({ file, url });
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error(file.name));
+        };
+        img.src = url;
+      }))).then((loaded) => {
+        loaded.forEach(({ file, url }) => {
+          sheetPages.push({
+            id: sheetSeq,
+            name: file.name,
+            blob: file,
+            url,
+            lines: [],
+          });
+          sheetSeq += 1;
+        });
+        sheetReady = true;
+        drawMode = true;
+        $('draw-line').classList.add('on');
+        persistSheets();
+        renderSheets();
+        setStatus('Trascina un rettangolo su ogni rigo. Poi puoi spostarlo o allungarlo dai quadratini.', 'ok');
+      }).catch(() => {
+        setStatus('Una immagine non si è aperta.', 'bad');
+      });
+    }
+
+    function removeSheetPage(id) {
+      const page = sheetPages.find((item) => item.id === id);
+      if (page) URL.revokeObjectURL(page.url);
+      sheetPages = sheetPages.filter((item) => item.id !== id);
+      clearSheetMark();
+      persistSheets();
+      renderSheets();
+    }
+
+    function applySourceMode() {
+      const image = isImageMode();
+      $('songsterr-tools').hidden = image;
+      $('image-tools').hidden = !image;
+      $('tab-frame').hidden = image;
+      $('sheet-view').hidden = !image;
+      $('line-list').hidden = !image;
+      try { localStorage.setItem('tab-sala-mode', image ? 'image' : 'songsterr'); } catch { /* ignore */ }
+      if (image) {
+        renderLineList();
+        setStatus(sheetPages.length
+          ? 'Immagini pronte. Disegna un rigo oppure clicca una battuta già segnata.'
+          : 'Aggiungi le immagini dello spartito.', 'ok');
+      }
+    }
+
+    function tabMsg(payload) {
+      const frame = $('tab-frame');
+      if (!frame.contentWindow) return;
+      frame.contentWindow.postMessage({ source: 'hrcast-practice', ...payload }, '*');
+    }
+
+    function setStatus(text, kind) {
+      const el = $('tab-status');
+      el.textContent = text;
+      el.className = 'status' + (kind ? ' ' + kind : '');
+    }
+
+    function songPath(raw) {
+      const value = (raw || '').trim() || DEFAULT_TAB;
+      let url;
+      try {
+        url = new URL(value);
+      } catch {
+        throw new Error('Indirizzo Songsterr non valido');
+      }
+      if (!/(^|\.)songsterr\.com$/.test(url.hostname)) {
+        throw new Error('Serve un indirizzo di songsterr.com');
+      }
+      return url.pathname + url.search;
+    }
+
+    function hasLocalProxy() {
+      return location.hostname === '127.0.0.1' || location.hostname === 'localhost';
+    }
+
+    function loadTab() {
+      if (!hasLocalProxy()) {
+        setStatus('Songsterr si apre solo in locale, con npm start. Qui puoi usare video, metronomo e le immagini dello spartito.', 'bad');
+        return;
+      }
+      let path;
+      try {
+        path = songPath($('tab-url').value);
+      } catch (err) {
+        setStatus(err.message, 'bad');
+        return;
+      }
+      setStatus('Carico la tab…');
+      $('tab-frame').src = path;
+    }
+
+    function youtubeId(raw) {
+      const value = raw.trim();
+      if (/^[\w-]{11}$/.test(value)) return value;
+      let url;
+      try { url = new URL(value); } catch { return null; }
+      const host = url.hostname.replace(/^www\./, '');
+      if (host === 'youtu.be') {
+        const id = url.pathname.split('/').filter(Boolean)[0] || '';
+        return /^[\w-]{11}$/.test(id) ? id : null;
+      }
+      if (host === 'youtube.com' || host === 'music.youtube.com' || host === 'm.youtube.com') {
+        const v = url.searchParams.get('v');
+        if (v && /^[\w-]{11}$/.test(v)) return v;
+        const match = url.pathname.match(/\/(embed|shorts|live)\/([\w-]{11})/);
+        return match ? match[2] : null;
+      }
+      return null;
+    }
+
+    function loadVideo() {
+      const id = youtubeId($('yt-url').value);
+      if (!id) {
+        setStatus('Indirizzo YouTube non riconosciuto', 'bad');
+        return;
+      }
+      $('yt-empty')?.remove();
+      let frame = $('yt-player');
+      if (!frame) {
+        frame = document.createElement('iframe');
+        frame.id = 'yt-player';
+        frame.allow = 'autoplay; encrypted-media; picture-in-picture';
+        frame.allowFullscreen = true;
+        frame.title = 'Video YouTube';
+        $('yt-box').appendChild(frame);
+      }
+      frame.src = `https://www.youtube-nocookie.com/embed/${id}?enablejsapi=1&rel=0`;
+    }
+
+    function videoCommand(func) {
+      const frame = $('yt-player');
+      if (!frame?.contentWindow) return false;
+      const send = (payload) => frame.contentWindow.postMessage(JSON.stringify(payload), '*');
+      send({ event: 'listening', id: 'yt-player' });
+      send({ event: 'command', func, args: [] });
+      return true;
+    }
+
+    function ensureAudio() {
+      if (!audioCtx) audioCtx = new AudioContext();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+
+    function scheduleClick(time, accent) {
+      const ctx = audioCtx;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(accent ? 1640 : 1080, time);
+      gain.gain.setValueAtTime(0.0001, time);
+      gain.gain.exponentialRampToValueAtTime(accent ? 0.2 : 0.11, time + 0.004);
+      gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.05);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(time);
+      osc.stop(time + 0.06);
+    }
+
+    function renderCount(index) {
+      const n = beatsPerBar();
+      const pos = positionAt(index);
+      const beat = pos.beat + 1;
+      const bar = pos.bar;
+      const length = clicksDone ? 0 : barCount();
+      const last = length ? playFrom + length - 1 : 0;
+      $('count').innerHTML = last
+        ? `Battuta <b>${bar}</b> / ${last} · pulsazione <b>${beat}</b> / ${n}`
+        : `Battuta <b>${bar}</b> · pulsazione <b>${beat}</b> / ${n}`;
+    }
+
+    function publishBar(index) {
+      if (!$('do-scroll').checked) return;
+      const pos = positionAt(index);
+      showFollow(pos.bar, pos.beat, beatsPerBar());
+    }
+
+    function chooseBeat(beatNumber) {
+      const n = beatsPerBar();
+      const beat = (beatNumber - 1) % n;
+      const bar = Math.floor((beatNumber - 1) / n) + 1;
+      chooseStart(bar, beat);
+    }
+
+    function chooseStart(bar, beatInBar = 0) {
+      const nBar = Math.max(1, Math.min(999, Math.round(Number(bar)) || 1));
+      const nBeat = Math.max(0, Math.min(beatsPerBar() - 1, Math.round(beatInBar) || 0));
+      playBeat = nBeat;
+      if (startBar.value !== String(nBar)) startBar.value = String(nBar);
+      stepBar = nBar;
+      updateMath();
+      if (running) return;
+      showFollow(nBar, playBeat, beatsPerBar());
+      const beatNo = (nBar - 1) * beatsPerBar() + playBeat + 1;
+      $('count').innerHTML = nBar > 1 || playBeat > 0
+        ? `Partenza dal beat <b>${beatNo}</b> · battuta <b>${nBar}</b>`
+        : 'In attesa';
+      paintDots(nBar > 1 || playBeat > 0 ? playBeat : -1);
+    }
+
+    function beginPiece() {
+      if (pieceStarted) return;
+      pieceStarted = true;
+      if ($('do-video').checked) {
+        if (!videoCommand('playVideo')) {
+          setStatus('Video non caricato: incolla un indirizzo YouTube e premi Carica video');
+        }
+      }
+    }
+
+    function onPre(index, total) {
+      paintDots(index % beatsPerBar());
+      $('count').innerHTML = `Precount <b>${index + 1}</b> / ${total}`;
+    }
+
+    function onBeat(index) {
+      beginPiece();
+      shownBeat = index;
+      paintDots(index % beatsPerBar());
+      renderCount(index);
+      publishBar(index);
+    }
+
+    function scheduler() {
+      if (!running) return;
+      const wantScroll = $('do-scroll').checked;
+      const wantClick = $('do-metro').checked && !clicksDone;
+      if (!wantClick && !wantScroll && preLeft <= 0 && pieceStarted) return;
+      const ctx = audioCtx;
+      const bpmNow = Math.max(30, Math.min(280, num(bpm, 155)));
+      const spacing = 60 / bpmNow;
+      const limit = maxBeats();
+      const per = beatsPerBar();
+      while (nextNote < ctx.currentTime + 0.12) {
+        if (preLeft > 0) {
+          const preIndex = preTotal - preLeft;
+          scheduleClick(nextNote, preIndex % per === 0);
+          scheduled.push({ time: nextNote, pre: true, preIndex });
+          preLeft -= 1;
+          lastBeatTime = nextNote;
+          nextNote += spacing;
+          continue;
+        }
+        if (!wantClick && !wantScroll) {
+          if (!pieceStarted && beatIndex === 0) {
+            scheduled.push({ time: nextNote, index: 0 });
+            beatIndex = 1;
+            lastBeatTime = nextNote;
+            nextNote += spacing;
+          }
+          return;
+        }
+        if (!clicksDone && limit && beatIndex >= limit) {
+          clicksDone = true;
+          if (!$('keep-scroll').checked || !$('do-scroll').checked) {
+            if (ctx.currentTime >= lastBeatTime + 0.06) stopAll('Battute finite');
+            return;
+          }
+          $('count').textContent = 'Click fermo, la tab continua';
+          setStatus('Il click si è fermato. La tab segue ancora le battute, finché premi Stop.', 'ok');
+        }
+        const accent = beatIndex % per === 0;
+        if (!clicksDone && $('do-metro').checked) scheduleClick(nextNote, accent);
+        scheduled.push({ time: nextNote, index: beatIndex });
+        lastBeatTime = nextNote;
+        nextNote += spacing;
+        beatIndex += 1;
+      }
+    }
+
+    function followBeats() {
+      if (!audioCtx) return;
+      const now = audioCtx.currentTime;
+      while (scheduled.length && scheduled[0].time <= now + 0.02) {
+        const item = scheduled.shift();
+        if (item.pre) onPre(item.preIndex, preTotal);
+        else onBeat(item.index);
+      }
+    }
+
+    function startAll() {
+      if (running) return;
+      const wantMetro = $('do-metro').checked;
+      const wantScroll = $('do-scroll').checked;
+      const wantVideo = $('do-video').checked;
+      const countIn = precountBeats();
+      if (!wantMetro && !wantScroll && !wantVideo) return;
+      running = true;
+      $('sheet-view').classList.add('playing');
+      clicksDone = false;
+      pieceStarted = false;
+      preTotal = countIn;
+      preLeft = countIn;
+      playFrom = startBarNumber();
+      shownBeat = -1;
+      beatIndex = 0;
+      stepBar = playFrom;
+      scheduled.length = 0;
+      $('count').innerHTML = countIn ? `Precount <b>0</b> / ${countIn}` : 'Via';
+      paintDots(-1);
+      $('start').disabled = true;
+
+      if (wantMetro || wantScroll || countIn > 0) {
+        const ctx = ensureAudio();
+        nextNote = ctx.currentTime + 0.06;
+        lastBeatTime = nextNote;
+        scheduler();
+        timer = setInterval(() => {
+          scheduler();
+          followBeats();
+        }, 25);
+        if (countIn > 0) {
+          setStatus(`Precount di ${countIn} click, poi parte lo spartito.`, 'ok');
+        }
+      } else if (wantVideo) {
+        beginPiece();
+      }
+    }
+
+    function stopAll(reason) {
+      running = false;
+      $('sheet-view').classList.remove('playing');
+      clicksDone = false;
+      pieceStarted = false;
+      preLeft = 0;
+      if (timer) clearInterval(timer);
+      timer = null;
+      scheduled.length = 0;
+      $('start').disabled = false;
+      clearFollow();
+      videoCommand('pauseVideo');
+      if (reason) $('count').textContent = reason;
+      else if (shownBeat < 0) $('count').textContent = 'Fermo';
+      if (reason !== 'Inizio' && (isImageMode() ? spanForBeat((startBarNumber() - 1) * beatsPerBar() + playBeat + 1) : startBarNumber() > 1)) {
+        showFollow(startBarNumber(), playBeat, beatsPerBar());
+      }
+    }
+
+    window.addEventListener('message', (ev) => {
+      const data = ev.data;
+      if (!data || data.source !== 'hrcast-tab' || isImageMode()) return;
+      window.__tabDebug = data;
+      if (data.boot) setStatus('Clicca una battuta sullo spartito per scegliere da dove partire.', 'ok');
+      if (data.pick && !running) chooseStart(data.pick);
+      if (data.follow) {
+        const where = (data.measures || []).join('–');
+        setStatus(
+          data.exact
+            ? `Battuta ${data.bar} · riga ${where || data.bar}`
+            : `Cerco la battuta ${data.bar}…`,
+          'ok'
+        );
+      }
+      if (data.error) setStatus(data.error, 'bad');
+    });
+
+    $('start').addEventListener('click', startAll);
+    $('stop').addEventListener('click', () => stopAll('Fermo'));
+    $('yt-load').addEventListener('click', loadVideo);
+    $('yt-url').addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') loadVideo();
+    });
+    $('tab-load').addEventListener('click', loadTab);
+    $('tab-url').addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') loadTab();
+    });
+    $('tab-step').addEventListener('click', () => {
+      if (running) return;
+      chooseStart(startBarNumber() + 1);
+    });
+    $('tab-reset').addEventListener('click', () => {
+      stepBar = 1;
+      playFrom = 1;
+      playBeat = 0;
+      startBar.value = '1';
+      if (running) stopAll('Inizio');
+      if (isImageMode()) {
+        clearSheetMark();
+        $('sheet-view').scrollTop = 0;
+      } else {
+        tabMsg({ cmd: 'reset' });
+      }
+      shownBeat = -1;
+      paintDots(-1);
+      updateMath();
+      if (!running) $('count').textContent = 'In attesa';
+    });
+    $('tab-frame').addEventListener('load', () => {
+      tabMsg({ cmd: 'ping' });
+      setTimeout(() => tabMsg({ cmd: 'ping' }), 1500);
+      setTimeout(() => tabMsg({ cmd: 'ping' }), 4000);
+    });
+
+    $('keep-scroll').addEventListener('change', updateMath);
+    $('do-scroll').addEventListener('change', () => {
+      if (!$('do-scroll').checked) clearFollow();
+      else if (running && shownBeat >= 0) publishBar(shownBeat);
+    });
+    [bpm, perBar, bars, precount].forEach((el) => el.addEventListener('input', updateMath));
+    startBar.addEventListener('input', () => {
+      if (running) return;
+      chooseStart(startBarNumber());
+    });
+    $('source-mode').addEventListener('change', () => {
+      applySourceMode();
+      if (!isImageMode() && !$('tab-frame').getAttribute('src')) loadTab();
+    });
+    $('sheet-file').addEventListener('change', () => {
+      addSheetFiles($('sheet-file').files);
+      $('sheet-file').value = '';
+    });
+    $('draw-line').addEventListener('click', () => {
+      drawMode = !drawMode;
+      $('draw-line').classList.toggle('on', drawMode);
+      renderSheets();
+    });
+    $('clear-lines').addEventListener('click', () => {
+      sheetPages.forEach((page) => { page.lines = []; });
+      clearSheetMark();
+      persistSheets();
+      renderSheets();
+    });
+    $('clear-pages').addEventListener('click', () => {
+      sheetPages.forEach((page) => URL.revokeObjectURL(page.url));
+      sheetPages = [];
+      clearSheetMark();
+      persistSheets();
+      renderSheets();
+      setStatus('Immagini tolte.', 'ok');
+    });
+    $('export-sheet').addEventListener('click', exportSheets);
+    $('import-sheet-btn').addEventListener('click', () => $('import-sheet').click());
+    $('import-sheet').addEventListener('change', () => {
+      const file = $('import-sheet').files && $('import-sheet').files[0];
+      $('import-sheet').value = '';
+      if (!file) return;
+      file.text().then(importSheetText).catch(() => {
+        setStatus('Il file non si è aperto.', 'bad');
+      });
+    });
+
+    updateMath();
+    let savedMode = '';
+    try { savedMode = localStorage.getItem('tab-sala-mode') || ''; } catch { /* ignore */ }
+    restoreSheets().then(() => {
+      if (savedMode === 'image') {
+        $('source-mode').value = 'image';
+        applySourceMode();
+      } else {
+        loadTab();
+      }
+    });
+  </script>
+</body>
+</html>
