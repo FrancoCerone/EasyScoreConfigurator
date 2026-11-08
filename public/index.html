@@ -212,7 +212,46 @@
       touch-action: none;
     }
     #sheet-view.playing .sheet-line { cursor: default; }
-    #sheet-view.playing .sheet-handle { display: none; }
+    #sheet-view.playing .sheet-handle,
+    #sheet-view.playing .sheet-dup { display: none; }
+    .sheet-dup {
+      position: absolute;
+      top: 0;
+      right: 0;
+      z-index: 5;
+      transform: translateY(calc(-100% - 2px));
+      font: inherit;
+      font-size: 0.68rem;
+      line-height: 1;
+      padding: 0.18rem 0.4rem;
+      border: 0;
+      border-radius: 6px;
+      background: #16160a;
+      color: #f5d000;
+      cursor: pointer;
+    }
+    .line-editor {
+      position: fixed;
+      z-index: 30;
+      width: 14rem;
+      padding: 0.7rem;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+    .line-editor-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      font-size: 0.82rem;
+    }
+    .line-editor label { margin: 0; }
     .sheet-handle {
       position: absolute;
       width: 12px;
@@ -290,7 +329,7 @@
   <header>
     <div>
       <div class="brand"><span>EasyScore</span> Configurator</div>
-      <div class="hint">Video e metronomo. Su un’immagine trascini i righi, li sposti e li allunghi dai quadratini; il cursore segue i beat.</div>
+      <div class="hint">Video e metronomo. Su un’immagine trascini i righi, li duplichi, li sposti e li allunghi dai quadratini; il cursore segue i beat.</div>
     </div>
     <div class="actions">
       <button class="primary" id="start" type="button">Avvia</button>
@@ -436,6 +475,9 @@
     function beatsPerBar() {
       return Math.max(1, Math.min(12, Math.round(num(perBar, 4))));
     }
+    function songBpm() {
+      return Math.max(40, Math.min(220, Math.round(num(bpm, 155))));
+    }
     function barCount() {
       return Math.max(0, Math.min(999, Math.round(num(bars, 0))));
     }
@@ -494,6 +536,7 @@
     }
 
     let sheetPages = [];
+    let lineEditor = null;
     let sheetSeq = 1;
     let drawMode = false;
     let sheetReady = false;
@@ -681,7 +724,7 @@
           const box = document.createElement('div');
           box.className = 'sheet-line';
           box.dataset.lineId = String(line.id);
-          box.title = 'Trascina per spostare. I quadratini allungano il rigo. Un click sceglie il beat.';
+          box.title = 'Trascina per spostare. Un click apre i valori del rigo e sceglie il beat. I quadratini allungano il rigo.';
           placeLine(box, line);
           const count = lineBeats(line);
           for (let i = 1; i < count; i++) {
@@ -690,6 +733,17 @@
             split.style.left = (i / count * 100) + '%';
             box.appendChild(split);
           }
+          const dup = document.createElement('button');
+          dup.type = 'button';
+          dup.className = 'sheet-dup';
+          dup.textContent = 'Duplica';
+          dup.title = 'Duplica rettangolo';
+          dup.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            ev.preventDefault();
+            duplicateLine(page, line);
+          });
+          box.appendChild(dup);
           ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].forEach((edge) => {
             const handle = document.createElement('div');
             handle.className = `sheet-handle ${edge}`;
@@ -708,6 +762,7 @@
       if (hadMark && !running) {
         showFollow(startBarNumber(), playBeat, beatsPerBar());
       }
+      syncLineEditor();
     }
 
     function renderLineList() {
@@ -745,13 +800,7 @@
           beatsInput.max = '128';
           beatsInput.value = String(lineBeats(line));
           beatsInput.title = 'Beat in questo rigo';
-          beatsInput.addEventListener('change', () => {
-            line.beats = Math.max(1, Math.min(128, Math.round(Number(beatsInput.value)) || 1));
-            delete line.bars;
-            if (line.highlight > line.beats) line.highlight = line.beats;
-            persistSheets();
-            renderSheets();
-          });
+          beatsInput.addEventListener('change', () => setLineBeats(line, beatsInput.value));
           const markName = document.createElement('span');
           markName.textContent = 'evidenzia';
           markName.style.flex = '0 0 auto';
@@ -761,11 +810,12 @@
           markInput.max = String(lineBeats(line));
           markInput.value = String(highlightBeats(line));
           markInput.title = 'Quanti beat tenere evidenziati insieme';
-          markInput.addEventListener('change', () => {
-            line.highlight = Math.max(1, Math.min(lineBeats(line), Math.round(Number(markInput.value)) || 1));
-            persistSheets();
-            renderSheets();
-          });
+          markInput.addEventListener('change', () => setLineHighlight(line, markInput.value));
+          const dup = document.createElement('button');
+          dup.type = 'button';
+          dup.className = 'small';
+          dup.textContent = 'Duplica';
+          dup.addEventListener('click', () => duplicateLine(page, line));
           const del = document.createElement('button');
           del.type = 'button';
           del.className = 'small';
@@ -775,15 +825,169 @@
             persistSheets();
             renderSheets();
           });
-          row.append(label, beatsInput, markName, markInput, del);
+          row.append(label, beatsInput, markName, markInput, dup, del);
           list.appendChild(row);
         });
       });
     }
 
+    function linesOverlap(a, b) {
+      return a.x < b.x + b.w - 0.004
+        && a.x + a.w > b.x + 0.004
+        && a.y < b.y + b.h - 0.004
+        && a.y + a.h > b.y + 0.004;
+    }
+
+    function duplicateLine(page, line) {
+      if (running) return;
+      const copy = {
+        id: sheetSeq,
+        x: line.x,
+        y: line.y + line.h,
+        w: line.w,
+        h: line.h,
+        beats: lineBeats(line),
+        highlight: highlightBeats(line),
+      };
+      let guard = 0;
+      while (copy.y + copy.h <= 1 && page.lines.some((item) => linesOverlap(copy, item)) && guard < 40) {
+        copy.y += copy.h;
+        guard += 1;
+      }
+      if (copy.y + copy.h > 1 || page.lines.some((item) => linesOverlap(copy, item))) {
+        const nudge = Math.min(0.03, line.w * 0.15);
+        copy.y = Math.max(0, Math.min(1 - line.h, line.y + 0.02));
+        copy.x = Math.min(1 - line.w, line.x + nudge);
+        if (page.lines.some((item) => linesOverlap(copy, item))) {
+          copy.x = Math.max(0, line.x - nudge);
+        }
+      }
+      sheetSeq += 1;
+      page.lines.push(copy);
+      sortLines(page);
+      persistSheets();
+      renderSheets();
+      const span = barSpans().find((item) => item.line === copy);
+      setStatus(span ? `Rettangolo duplicato, beat ${span.start}–${span.end}.` : 'Rettangolo duplicato.', 'ok');
+    }
+
+    function setLineBeats(line, raw) {
+      line.beats = Math.max(1, Math.min(128, Math.round(Number(raw)) || 1));
+      delete line.bars;
+      if (line.highlight > line.beats) line.highlight = line.beats;
+      persistSheets();
+      renderSheets();
+    }
+
+    function setLineHighlight(line, raw) {
+      line.highlight = Math.max(1, Math.min(lineBeats(line), Math.round(Number(raw)) || 1));
+      persistSheets();
+      renderSheets();
+    }
+
+    function closeLineEditor() {
+      $('line-editor')?.remove();
+      lineEditor = null;
+    }
+
+    function editorTarget() {
+      if (!lineEditor) return null;
+      const page = sheetPages.find((item) => item.id === lineEditor.pageId);
+      const line = page && page.lines.find((item) => item.id === lineEditor.lineId);
+      const box = line && document.querySelector(`.sheet-line[data-line-id="${line.id}"]`);
+      return page && line && box ? { page, line, box } : null;
+    }
+
+    function placeLineEditor(dialog, box) {
+      const rect = box.getBoundingClientRect();
+      const margin = 8;
+      const width = dialog.offsetWidth || 224;
+      const height = dialog.offsetHeight || 150;
+      let left = rect.left;
+      let top = rect.bottom + margin;
+      if (left + width > window.innerWidth - margin) left = window.innerWidth - width - margin;
+      if (top + height > window.innerHeight - margin) top = rect.top - height - margin;
+      left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+      top = Math.max(margin, Math.min(top, window.innerHeight - height - margin));
+      dialog.style.left = left + 'px';
+      dialog.style.top = top + 'px';
+    }
+
+    function ensureLineEditor() {
+      const existing = $('line-editor');
+      if (existing) return existing;
+      const dialog = document.createElement('div');
+      dialog.id = 'line-editor';
+      dialog.className = 'line-editor';
+      dialog.setAttribute('role', 'dialog');
+      dialog.setAttribute('aria-label', 'Modifica rigo');
+      const head = document.createElement('div');
+      head.className = 'line-editor-head';
+      const title = document.createElement('strong');
+      title.dataset.role = 'title';
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'small';
+      close.textContent = 'Chiudi';
+      close.addEventListener('click', closeLineEditor);
+      head.append(title, close);
+      const beats = document.createElement('input');
+      beats.type = 'number';
+      beats.min = '1';
+      beats.max = '128';
+      beats.dataset.field = 'beats';
+      beats.addEventListener('change', () => {
+        const current = editorTarget();
+        if (current) setLineBeats(current.line, beats.value);
+      });
+      const mark = document.createElement('input');
+      mark.type = 'number';
+      mark.min = '1';
+      mark.dataset.field = 'highlight';
+      mark.addEventListener('change', () => {
+        const current = editorTarget();
+        if (current) setLineHighlight(current.line, mark.value);
+      });
+      const beatsLabel = document.createElement('label');
+      beatsLabel.append('Beat nel rigo', beats);
+      const markLabel = document.createElement('label');
+      markLabel.append('Evidenzia', mark);
+      dialog.append(head, beatsLabel, markLabel);
+      document.body.appendChild(dialog);
+      return dialog;
+    }
+
+    function syncLineEditor() {
+      if (!lineEditor) return;
+      const current = editorTarget();
+      if (!current) {
+        closeLineEditor();
+        return;
+      }
+      const dialog = ensureLineEditor();
+      const span = barSpans().find((item) => item.line === current.line);
+      const index = current.page.lines.indexOf(current.line) + 1;
+      dialog.querySelector('[data-role="title"]').textContent = span
+        ? `Rigo ${index} · beat ${span.start}–${span.end}`
+        : `Rigo ${index}`;
+      const beatCount = lineBeats(current.line);
+      const beats = dialog.querySelector('[data-field="beats"]');
+      const mark = dialog.querySelector('[data-field="highlight"]');
+      if (document.activeElement !== beats) beats.value = String(beatCount);
+      mark.max = String(beatCount);
+      if (document.activeElement !== mark) mark.value = String(highlightBeats(current.line));
+      placeLineEditor(dialog, current.box);
+    }
+
+    function openLineEditor(page, line) {
+      lineEditor = { lineId: line.id, pageId: page.id };
+      syncLineEditor();
+    }
+
     function bindLinePointer(box, line, page) {
       box.addEventListener('pointerdown', (ev) => {
         if (running || ev.button !== 0) return;
+        if (ev.target.closest?.('.sheet-dup')) return;
         const handle = ev.target.closest?.('.sheet-handle');
         ev.stopPropagation();
         ev.preventDefault();
@@ -810,14 +1014,18 @@
           box.removeEventListener('pointerup', up);
           box.removeEventListener('pointercancel', up);
           if (!dragged) {
-            if (edge || drawMode) return;
-            const span = barSpans().find((item) => item.line === line);
-            if (!span) return;
-            const rect = box.getBoundingClientRect();
-            const t = rect.width ? (event.clientX - rect.left) / rect.width : 0;
-            const count = lineBeats(line);
-            const index = Math.min(count - 1, Math.max(0, Math.floor(t * count)));
-            chooseBeat(span.start + index);
+            if (edge) return;
+            if (!drawMode) {
+              const span = barSpans().find((item) => item.line === line);
+              if (span) {
+                const rect = box.getBoundingClientRect();
+                const t = rect.width ? (event.clientX - rect.left) / rect.width : 0;
+                const count = lineBeats(line);
+                const index = Math.min(count - 1, Math.max(0, Math.floor(t * count)));
+                chooseBeat(span.start + index);
+              }
+            }
+            openLineEditor(page, line);
             return;
           }
           sortLines(page);
@@ -981,11 +1189,13 @@
           highlight: highlightBeats(line),
         })),
       })))).then((pages) => {
-        const payload = { kind: 'tab-sala', version: 1, pages };
+        const tempo = songBpm();
+        const intro = precountBeats();
+        const payload = { kind: 'tab-sala', version: 1, bpm: tempo, precount: intro, pages };
         const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
         downloadBlob(blob, exportFileName());
         const lines = pages.reduce((sum, page) => sum + page.lines.length, 0);
-        setStatus(`File esportato: ${pages.length} immagin${pages.length === 1 ? 'e' : 'i'} e ${lines} righ${lines === 1 ? 'o' : 'i'}.`, 'ok');
+        setStatus(`File esportato: ${pages.length} immagin${pages.length === 1 ? 'e' : 'i'}, ${lines} righ${lines === 1 ? 'o' : 'i'}, ${tempo} BPM, precount ${intro}.`, 'ok');
       }).catch(() => {
         setStatus('Export non riuscito.', 'bad');
       });
@@ -1053,11 +1263,18 @@
       clearSheetMark();
       drawMode = false;
       $('draw-line').classList.remove('on');
+      const tempo = Math.round(Number(doc.bpm));
+      if (Number.isFinite(tempo)) bpm.value = String(Math.max(40, Math.min(220, tempo)));
+      const intro = Math.round(Number(doc.precount));
+      if (Number.isFinite(intro)) precount.value = String(Math.max(0, Math.min(32, intro)));
       sheetReady = true;
       persistSheets();
       renderSheets();
+      updateMath();
       const lines = built.reduce((sum, page) => sum + page.lines.length, 0);
-      setStatus(`Spartito aperto: ${built.length} immagin${built.length === 1 ? 'e' : 'i'} e ${lines} righ${lines === 1 ? 'o' : 'i'}.`, 'ok');
+      const tempoText = Number.isFinite(tempo) ? `, ${songBpm()} BPM` : '';
+      const introText = Number.isFinite(intro) ? `, precount ${precountBeats()}` : '';
+      setStatus(`Spartito aperto: ${built.length} immagin${built.length === 1 ? 'e' : 'i'} e ${lines} righ${lines === 1 ? 'o' : 'i'}${tempoText}${introText}.`, 'ok');
     }
 
     function addSheetFiles(files) {
@@ -1113,6 +1330,7 @@
       $('tab-frame').hidden = image;
       $('sheet-view').hidden = !image;
       $('line-list').hidden = !image;
+      if (!image) closeLineEditor();
       try { localStorage.setItem('tab-sala-mode', image ? 'image' : 'songsterr'); } catch { /* ignore */ }
       if (image) {
         renderLineList();
@@ -1365,6 +1583,7 @@
       const countIn = precountBeats();
       if (!wantMetro && !wantScroll && !wantVideo) return;
       running = true;
+      closeLineEditor();
       $('sheet-view').classList.add('playing');
       clicksDone = false;
       pieceStarted = false;
@@ -1483,6 +1702,21 @@
     $('source-mode').addEventListener('change', () => {
       applySourceMode();
       if (!isImageMode() && !$('tab-frame').getAttribute('src')) loadTab();
+    });
+    document.addEventListener('pointerdown', (ev) => {
+      const dialog = $('line-editor');
+      if (!dialog || dialog.contains(ev.target)) return;
+      const lineId = ev.target.closest?.('.sheet-line')?.dataset.lineId;
+      if (lineId && lineEditor && String(lineEditor.lineId) === lineId) return;
+      closeLineEditor();
+    });
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape') closeLineEditor();
+    });
+    $('sheet-view').addEventListener('scroll', () => {
+      const current = editorTarget();
+      const dialog = $('line-editor');
+      if (current && dialog) placeLineEditor(dialog, current.box);
     });
     $('sheet-file').addEventListener('change', () => {
       addSheetFiles($('sheet-file').files);
