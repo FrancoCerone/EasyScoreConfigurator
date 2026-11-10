@@ -396,8 +396,8 @@
       <div class="tab-bar">
         <label>Sorgente
           <select id="source-mode">
-            <option value="songsterr" selected>Songsterr</option>
-            <option value="image">Immagini</option>
+            <option value="songsterr">Songsterr</option>
+            <option value="image" selected>Immagini</option>
           </select>
         </label>
         <div id="songsterr-tools" class="source-tools">
@@ -407,6 +407,7 @@
           <button class="small" id="tab-load" type="button">Ricarica tab</button>
         </div>
         <div id="image-tools" class="source-tools" hidden>
+          <button class="small" id="new-sheet" type="button" title="Toglie immagini e righi e rimette BPM e precount ai valori iniziali">Nuovo</button>
           <label style="min-width:12rem">Immagini dello spartito
             <input id="sheet-file" type="file" accept="image/*" multiple />
           </label>
@@ -1293,7 +1294,18 @@
         };
         img.src = url;
       }))).then((loaded) => {
+        let added = 0;
+        let replaced = 0;
         loaded.forEach(({ file, url }) => {
+          const same = sheetPages.find((page) => page.name === file.name);
+          if (same) {
+            // Same file name: swap in the new picture and keep the staff boxes.
+            URL.revokeObjectURL(same.url);
+            same.blob = file;
+            same.url = url;
+            replaced += 1;
+            return;
+          }
           sheetPages.push({
             id: sheetSeq,
             name: file.name,
@@ -1302,13 +1314,18 @@
             lines: [],
           });
           sheetSeq += 1;
+          added += 1;
         });
         sheetReady = true;
-        drawMode = true;
-        $('draw-line').classList.add('on');
+        if (added) {
+          drawMode = true;
+          $('draw-line').classList.add('on');
+        }
         persistSheets();
         renderSheets();
-        setStatus('Trascina un rettangolo su ogni rigo. Poi puoi spostarlo o allungarlo dai quadratini.', 'ok');
+        setStatus(added
+          ? 'Trascina un rettangolo su ogni rigo. Poi puoi spostarlo o allungarlo dai quadratini.'
+          : `Immagin${replaced === 1 ? 'e aggiornata' : 'i aggiornate'}: i righi sono rimasti al loro posto.`, 'ok');
       }).catch(() => {
         setStatus('Una immagine non si è aperta.', 'bad');
       });
@@ -1741,6 +1758,31 @@
       renderSheets();
       setStatus('Immagini tolte.', 'ok');
     });
+    $('new-sheet').addEventListener('click', () => {
+      const hasWork = sheetPages.length > 0;
+      if (hasWork && !confirm('Ripartire da zero? Immagini e righi verranno tolti. Esporta prima se vuoi tenerli.')) return;
+      if (running) stopAll('Fermo');
+      closeLineEditor();
+      sheetPages.forEach((page) => URL.revokeObjectURL(page.url));
+      sheetPages = [];
+      clearSheetMark();
+      drawMode = false;
+      $('draw-line').classList.remove('on');
+      [bpm, precount, $('line-beats')].forEach((input) => { input.value = input.defaultValue; });
+      stepBar = 1;
+      playFrom = 1;
+      playBeat = 0;
+      startBar.value = '1';
+      shownBeat = -1;
+      paintDots(-1);
+      $('count').textContent = 'In attesa';
+      $('sheet-view').scrollTop = 0;
+      sheetReady = true;
+      persistSheets();
+      renderSheets();
+      updateMath();
+      setStatus('Nuovo spartito: aggiungi le immagini.', 'ok');
+    });
     $('export-sheet').addEventListener('click', exportSheets);
     $('import-sheet-btn').addEventListener('click', () => $('import-sheet').click());
     $('import-sheet').addEventListener('change', () => {
@@ -1753,16 +1795,9 @@
     });
 
     updateMath();
-    let savedMode = '';
-    try { savedMode = localStorage.getItem('tab-sala-mode') || ''; } catch { /* ignore */ }
-    restoreSheets().then(() => {
-      if (savedMode === 'image') {
-        $('source-mode').value = 'image';
-        applySourceMode();
-      } else {
-        loadTab();
-      }
-    });
+    $('source-mode').value = 'image';
+    applySourceMode();
+    restoreSheets().then(applySourceMode);
   </script>
 </body>
 </html>
