@@ -124,6 +124,48 @@
       overflow: hidden;
     }
     .yt iframe { width: 100%; height: 100%; border: 0; }
+    .yt-results {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      margin-top: 0.45rem;
+      max-height: 16rem;
+      overflow: auto;
+    }
+    .yt-results[hidden] { display: none; }
+    button.yt-hit {
+      display: flex;
+      gap: 0.45rem;
+      align-items: center;
+      width: 100%;
+      text-align: left;
+      border-radius: 8px;
+      padding: 0.35rem;
+      background: #121216;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    button.yt-hit img {
+      width: 72px;
+      height: 40px;
+      object-fit: cover;
+      border-radius: 4px;
+      flex-shrink: 0;
+      background: #000;
+    }
+    button.yt-hit b {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 500;
+      line-height: 1.25;
+      color: var(--text);
+    }
+    button.yt-hit .yt-meta {
+      display: block;
+      color: var(--muted);
+      font-size: 0.72rem;
+      margin-top: 0.1rem;
+    }
     .yt .empty {
       position: absolute;
       inset: 0;
@@ -211,9 +253,69 @@
       cursor: move;
       touch-action: none;
     }
-    #sheet-view.playing .sheet-line { cursor: default; }
+    #sheet-view.playing .sheet-line,
+    #sheet-view.playing .sheet-note { cursor: default; }
     #sheet-view.playing .sheet-handle,
-    #sheet-view.playing .sheet-dup { display: none; }
+    #sheet-view.playing .sheet-dup,
+    #sheet-view.playing .sheet-note-x,
+    #sheet-view.playing .sheet-note-bar { display: none; }
+    #sheet-view.playing .sheet-note { pointer-events: none; }
+    .sheet-note {
+      position: absolute;
+      z-index: 6;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      border: 2px solid #1c1c20;
+      border-radius: 4px;
+      background: rgba(255, 250, 220, 0.94);
+      color: #16160a;
+      font-size: clamp(13px, 1.7cqi, 26px);
+      font-weight: 600;
+      line-height: 1.2;
+      min-height: 2.8em;
+      overflow: hidden;
+      cursor: move;
+      touch-action: none;
+    }
+    .sheet-page { container-type: inline-size; }
+    .sheet-note-bar {
+      flex: 0 0 auto;
+      height: 0.7em;
+      min-height: 10px;
+      background: #1c1c20;
+      cursor: move;
+    }
+    .sheet-note textarea {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+      margin: 0;
+      padding: 0.12em 0.35em 0.2em;
+      border: 0;
+      resize: none;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      font-weight: 600;
+      line-height: 1.2;
+      cursor: text;
+    }
+    button.sheet-note-x {
+      position: absolute;
+      top: 0;
+      right: 0;
+      z-index: 7;
+      width: 1.15em;
+      height: 0.7em;
+      min-height: 10px;
+      padding: 0;
+      border-radius: 0 2px 0 4px;
+      background: #1c1c20;
+      color: #f5d000;
+      font-size: 0.85em;
+      line-height: 1;
+    }
     .sheet-dup {
       position: absolute;
       top: 0;
@@ -340,12 +442,14 @@
     <section class="side">
       <div class="card">
         <h2>Video YouTube</h2>
-        <label>Indirizzo del video
-          <input id="yt-url" type="text" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off" />
+        <label>Link o ricerca
+          <input id="yt-url" type="text" placeholder="Link YouTube, oppure il titolo del brano" autocomplete="off" />
         </label>
         <div class="row">
+          <button class="small" id="yt-search" type="button">Cerca</button>
           <button class="small" id="yt-load" type="button">Carica video</button>
         </div>
+        <div id="yt-results" class="yt-results" hidden></div>
         <div class="yt" id="yt-box" style="margin-top:0.6rem">
           <div class="empty" id="yt-empty">Nessun video caricato</div>
         </div>
@@ -415,6 +519,7 @@
             <input id="line-beats" type="number" min="1" max="128" value="8" />
           </label>
           <button class="small" id="draw-line" type="button">Disegna rigo</button>
+          <button class="small" id="draw-note" type="button" title="Trascina un riquadro e scrivici dentro. L’appunto resta nel file esportato.">Appunto</button>
           <button class="small" id="clear-lines" type="button">Togli righi</button>
           <button class="small" id="clear-pages" type="button">Togli immagini</button>
           <button class="small" id="export-sheet" type="button">Esporta</button>
@@ -540,6 +645,8 @@
     let lineEditor = null;
     let sheetSeq = 1;
     let drawMode = false;
+    let noteMode = false;
+    let focusNoteId = 0;
     let sheetReady = false;
     let imageStatusKey = '';
 
@@ -649,6 +756,7 @@
             name: page.name,
             blob: page.blob,
             lines: page.lines,
+            notes: page.notes || [],
           })),
         });
       }).catch(() => {
@@ -674,10 +782,14 @@
             blob: page.blob,
             url,
             lines: Array.isArray(page.lines) ? page.lines : [],
+            notes: Array.isArray(page.notes) ? page.notes : [],
           });
           sheetSeq = Math.max(sheetSeq, page.id + 1);
           page.lines.forEach((line) => {
             sheetSeq = Math.max(sheetSeq, line.id + 1);
+          });
+          (page.notes || []).forEach((note) => {
+            sheetSeq = Math.max(sheetSeq, note.id + 1);
           });
         });
         renderSheets();
@@ -688,6 +800,15 @@
 
     function sortLines(page) {
       page.lines.sort((a, b) => a.y - b.y || a.x - b.x);
+    }
+
+    function pageNotes(page) {
+      if (!Array.isArray(page.notes)) page.notes = [];
+      return page.notes;
+    }
+
+    function sortNotes(page) {
+      pageNotes(page).sort((a, b) => a.y - b.y || a.x - b.x);
     }
 
     function clearSheetMark() {
@@ -703,7 +824,7 @@
       if (!sheetPages.length) {
         const empty = document.createElement('div');
         empty.className = 'sheet-empty';
-        empty.textContent = 'Aggiungi una o più immagini. Premi Disegna rigo e trascina un rettangolo. Poi puoi spostarlo o allungarlo dai quadratini.';
+        empty.textContent = 'Aggiungi una o più immagini. Premi Disegna rigo per i beat, oppure Appunto per un riquadro di testo.';
         root.appendChild(empty);
       }
       sheetPages.forEach((page) => {
@@ -720,7 +841,7 @@
           }
         });
         const layer = document.createElement('div');
-        layer.className = 'sheet-layer' + (drawMode ? ' drawing' : '');
+        layer.className = 'sheet-layer' + (drawMode || noteMode ? ' drawing' : '');
         page.lines.forEach((line) => {
           const box = document.createElement('div');
           box.className = 'sheet-line';
@@ -754,6 +875,7 @@
           bindLinePointer(box, line, page);
           layer.appendChild(box);
         });
+        pageNotes(page).forEach((note) => layer.appendChild(renderNote(note, page)));
         layer.addEventListener('pointerdown', (ev) => onSheetPointerDown(ev, page, layer));
         wrap.appendChild(img);
         wrap.appendChild(layer);
@@ -764,6 +886,11 @@
         showFollow(startBarNumber(), playBeat, beatsPerBar());
       }
       syncLineEditor();
+      if (focusNoteId) {
+        const area = document.querySelector(`.sheet-note[data-note-id="${focusNoteId}"] textarea`);
+        focusNoteId = 0;
+        area?.focus();
+      }
     }
 
     function renderLineList() {
@@ -827,6 +954,34 @@
             renderSheets();
           });
           row.append(label, beatsInput, markName, markInput, dup, del);
+          list.appendChild(row);
+        });
+        pageNotes(page).forEach((note, ni) => {
+          const row = document.createElement('div');
+          row.className = 'line-row';
+          row.dataset.noteId = String(note.id);
+          const label = document.createElement('span');
+          label.textContent = `Appunto ${ni + 1}`;
+          const textInput = document.createElement('input');
+          textInput.type = 'text';
+          textInput.value = note.text || '';
+          textInput.placeholder = 'Intro chitarra';
+          textInput.maxLength = 400;
+          textInput.style.width = 'auto';
+          textInput.style.flex = '1';
+          textInput.title = 'Testo dell’appunto';
+          textInput.addEventListener('input', () => {
+            note.text = textInput.value;
+            const area = document.querySelector(`.sheet-note[data-note-id="${note.id}"] textarea`);
+            if (area && area.value !== note.text) area.value = note.text;
+            persistSheets();
+          });
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'small';
+          del.textContent = 'Elimina';
+          del.addEventListener('click', () => removeNote(page, note));
+          row.append(label, textInput, del);
           list.appendChild(row);
         });
       });
@@ -1041,8 +1196,101 @@
       });
     }
 
+    function removeNote(page, note) {
+      page.notes = pageNotes(page).filter((item) => item !== note);
+      persistSheets();
+      renderSheets();
+    }
+
+    function renderNote(note, page) {
+      const box = document.createElement('div');
+      box.className = 'sheet-note';
+      box.dataset.noteId = String(note.id);
+      placeLine(box, note);
+      const bar = document.createElement('div');
+      bar.className = 'sheet-note-bar';
+      bar.title = 'Trascina per spostare l’appunto';
+      const area = document.createElement('textarea');
+      area.value = note.text || '';
+      area.placeholder = 'Intro chitarra';
+      area.maxLength = 400;
+      area.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+      area.addEventListener('input', () => {
+        note.text = area.value;
+        const field = document.querySelector(`.line-row[data-note-id="${note.id}"] input`);
+        if (field && field.value !== note.text) field.value = note.text;
+        persistSheets();
+      });
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'sheet-note-x';
+      del.textContent = '×';
+      del.title = 'Elimina appunto';
+      del.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+      del.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        ev.preventDefault();
+        removeNote(page, note);
+      });
+      box.append(bar, area, del);
+      ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].forEach((edge) => {
+        const handle = document.createElement('div');
+        handle.className = `sheet-handle ${edge}`;
+        handle.dataset.edge = edge;
+        box.appendChild(handle);
+      });
+      bindNotePointer(box, note, page);
+      return box;
+    }
+
+    function bindNotePointer(box, note, page) {
+      box.addEventListener('pointerdown', (ev) => {
+        if (running || ev.button !== 0) return;
+        if (ev.target.closest?.('textarea, .sheet-note-x')) return;
+        const handle = ev.target.closest?.('.sheet-handle');
+        ev.stopPropagation();
+        ev.preventDefault();
+        const bounds = box.closest('.sheet-page').getBoundingClientRect();
+        const start = { x: note.x, y: note.y, w: note.w, h: note.h, cx: ev.clientX, cy: ev.clientY };
+        const edge = handle ? handle.dataset.edge : '';
+        let dragged = false;
+        const move = (event) => {
+          const dxPx = event.clientX - start.cx;
+          const dyPx = event.clientY - start.cy;
+          if (!dragged && Math.hypot(dxPx, dyPx) < 4) return;
+          dragged = true;
+          const dx = bounds.width ? (event.clientX - start.cx) / bounds.width : 0;
+          const dy = bounds.height ? (event.clientY - start.cy) / bounds.height : 0;
+          const next = edge ? resizeLine(start, dx, dy, edge) : moveLine(start, dx, dy);
+          note.x = next.x;
+          note.y = next.y;
+          note.w = next.w;
+          note.h = next.h;
+          placeLine(box, note);
+        };
+        const up = () => {
+          box.removeEventListener('pointermove', move);
+          box.removeEventListener('pointerup', up);
+          box.removeEventListener('pointercancel', up);
+          if (!dragged) {
+            box.querySelector('textarea')?.focus();
+            return;
+          }
+          sortNotes(page);
+          persistSheets();
+          renderSheets();
+          setStatus(edge ? 'Appunto ridimensionato.' : 'Appunto spostato.', 'ok');
+        };
+        box.addEventListener('pointermove', move);
+        box.addEventListener('pointerup', up);
+        box.addEventListener('pointercancel', up);
+        box.setPointerCapture(ev.pointerId);
+      });
+    }
+
     function onSheetPointerDown(ev, page, layer) {
-      if (!drawMode || running || ev.button !== 0 || ev.target !== layer) return;
+      const makingNote = noteMode && !drawMode;
+      if ((!drawMode && !noteMode) || running || ev.button !== 0 || ev.target !== layer) return;
       const pageEl = layer.parentElement;
       const rect = pageEl.getBoundingClientRect();
       if (!rect.width || !rect.height) return;
@@ -1068,6 +1316,31 @@
         draft.remove();
         const x = clamp01((event.clientX - rect.left) / rect.width);
         const y = clamp01((event.clientY - rect.top) / rect.height);
+        if (makingNote) {
+          let nx = Math.min(start.x, x);
+          let ny = Math.min(start.y, y);
+          let w = Math.abs(x - start.x);
+          let h = Math.abs(y - start.y);
+          const pageW = rect.width || 1;
+          const pageH = rect.height || 1;
+          if (w < 0.04 && h < 0.02) {
+            w = Math.min(0.42, 220 / pageW);
+            h = Math.min(0.22, 64 / pageH);
+          }
+          w = Math.max(Math.min(0.5, 160 / pageW), Math.min(1, w));
+          h = Math.max(Math.min(0.25, 52 / pageH), Math.min(1, h));
+          nx = Math.max(0, Math.min(1 - w, nx));
+          ny = Math.max(0, Math.min(1 - h, ny));
+          const note = { id: sheetSeq, x: nx, y: ny, w, h, text: '' };
+          sheetSeq += 1;
+          pageNotes(page).push(note);
+          sortNotes(page);
+          focusNoteId = note.id;
+          persistSheets();
+          renderSheets();
+          setStatus('Scrivi nel riquadro. L’appunto viene esportato con lo spartito.', 'ok');
+          return;
+        }
         const line = {
           id: sheetSeq,
           x: Math.min(start.x, x),
@@ -1189,6 +1462,13 @@
           beats: lineBeats(line),
           highlight: highlightBeats(line),
         })),
+        notes: pageNotes(page).map((note) => ({
+          x: note.x,
+          y: note.y,
+          w: note.w,
+          h: note.h,
+          text: String(note.text || '').slice(0, 400),
+        })),
       })))).then((pages) => {
         const tempo = songBpm();
         const intro = precountBeats();
@@ -1196,7 +1476,8 @@
         const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
         downloadBlob(blob, exportFileName());
         const lines = pages.reduce((sum, page) => sum + page.lines.length, 0);
-        setStatus(`File esportato: ${pages.length} immagin${pages.length === 1 ? 'e' : 'i'}, ${lines} righ${lines === 1 ? 'o' : 'i'}, ${tempo} BPM, precount ${intro}.`, 'ok');
+        const notes = pages.reduce((sum, page) => sum + page.notes.length, 0);
+        setStatus(`File esportato: ${pages.length} immagin${pages.length === 1 ? 'e' : 'i'}, ${lines} righ${lines === 1 ? 'o' : 'i'}, ${notes} appunt${notes === 1 ? 'o' : 'i'}, ${tempo} BPM, precount ${intro}.`, 'ok');
       }).catch(() => {
         setStatus('Export non riuscito.', 'bad');
       });
@@ -1231,12 +1512,30 @@
           highlight,
         };
       });
+      const notes = (Array.isArray(page.notes) ? page.notes : []).map((note) => {
+        const x = Number(note.x);
+        const y = Number(note.y);
+        const w = Number(note.w);
+        const h = Number(note.h);
+        if (![x, y, w, h].every((n) => Number.isFinite(n))) throw new Error('appunto');
+        const width = Math.max(0.04, Math.min(1, w));
+        const height = Math.max(0.02, Math.min(1, h));
+        return {
+          id: sheetSeq++,
+          x: Math.max(0, Math.min(1 - width, x)),
+          y: Math.max(0, Math.min(1 - height, y)),
+          w: width,
+          h: height,
+          text: String(note.text || '').slice(0, 400),
+        };
+      });
       return {
         id: sheetSeq++,
         name: String(page.name || `pagina ${index + 1}`).slice(0, 120),
         blob,
         url: URL.createObjectURL(blob),
         lines,
+        notes,
       };
     }
 
@@ -1263,7 +1562,9 @@
       sheetPages = built;
       clearSheetMark();
       drawMode = false;
+      noteMode = false;
       $('draw-line').classList.remove('on');
+      $('draw-note').classList.remove('on');
       const tempo = Math.round(Number(doc.bpm));
       if (Number.isFinite(tempo)) bpm.value = String(Math.max(40, Math.min(220, tempo)));
       const intro = Math.round(Number(doc.precount));
@@ -1273,9 +1574,10 @@
       renderSheets();
       updateMath();
       const lines = built.reduce((sum, page) => sum + page.lines.length, 0);
+      const notes = built.reduce((sum, page) => sum + page.notes.length, 0);
       const tempoText = Number.isFinite(tempo) ? `, ${songBpm()} BPM` : '';
       const introText = Number.isFinite(intro) ? `, precount ${precountBeats()}` : '';
-      setStatus(`Spartito aperto: ${built.length} immagin${built.length === 1 ? 'e' : 'i'} e ${lines} righ${lines === 1 ? 'o' : 'i'}${tempoText}${introText}.`, 'ok');
+      setStatus(`Spartito aperto: ${built.length} immagin${built.length === 1 ? 'e' : 'i'}, ${lines} righ${lines === 1 ? 'o' : 'i'} e ${notes} appunt${notes === 1 ? 'o' : 'i'}${tempoText}${introText}.`, 'ok');
     }
 
     function addSheetFiles(files) {
@@ -1312,6 +1614,7 @@
             blob: file,
             url,
             lines: [],
+            notes: [],
           });
           sheetSeq += 1;
           added += 1;
@@ -1319,7 +1622,9 @@
         sheetReady = true;
         if (added) {
           drawMode = true;
+          noteMode = false;
           $('draw-line').classList.add('on');
+          $('draw-note').classList.remove('on');
         }
         persistSheets();
         renderSheets();
@@ -1422,12 +1727,7 @@
       return null;
     }
 
-    function loadVideo() {
-      const id = youtubeId($('yt-url').value);
-      if (!id) {
-        setStatus('Indirizzo YouTube non riconosciuto', 'bad');
-        return;
-      }
+    function loadVideoById(id) {
       $('yt-empty')?.remove();
       let frame = $('yt-player');
       if (!frame) {
@@ -1439,6 +1739,82 @@
         $('yt-box').appendChild(frame);
       }
       frame.src = `https://www.youtube-nocookie.com/embed/${id}?enablejsapi=1&rel=0`;
+    }
+
+    function loadVideo() {
+      const id = youtubeId($('yt-url').value);
+      if (!id) {
+        setStatus('Non è un link YouTube: usa Cerca, oppure incolla un indirizzo.', 'bad');
+        return;
+      }
+      $('yt-results').hidden = true;
+      loadVideoById(id);
+    }
+
+    function renderYoutubeHits(videos) {
+      const box = $('yt-results');
+      box.replaceChildren();
+      if (!videos.length) {
+        box.hidden = true;
+        setStatus('Nessun video trovato.', 'bad');
+        return;
+      }
+      videos.forEach((video) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'yt-hit';
+        const img = document.createElement('img');
+        img.alt = '';
+        img.src = `https://i.ytimg.com/vi/${encodeURIComponent(video.id)}/mqdefault.jpg`;
+        const text = document.createElement('span');
+        const title = document.createElement('b');
+        title.textContent = video.title || video.id;
+        const meta = document.createElement('span');
+        meta.className = 'yt-meta';
+        meta.textContent = [video.channel, video.length].filter(Boolean).join(' · ');
+        text.append(title, meta);
+        button.append(img, text);
+        button.addEventListener('click', () => {
+          $('yt-url').value = `https://www.youtube.com/watch?v=${video.id}`;
+          box.hidden = true;
+          loadVideoById(video.id);
+          setStatus(video.title || 'Video caricato', 'ok');
+        });
+        box.appendChild(button);
+      });
+      box.hidden = false;
+      setStatus(`${videos.length} video. Scegline uno.`, 'ok');
+    }
+
+    function searchYoutube() {
+      const q = $('yt-url').value.trim();
+      if (youtubeId(q)) {
+        loadVideo();
+        return;
+      }
+      if (q.length < 2) {
+        setStatus('Scrivi un titolo o incolla un link YouTube.', 'bad');
+        return;
+      }
+      if (!hasLocalProxy()) {
+        setStatus('La ricerca YouTube funziona in locale, con npm start.', 'bad');
+        return;
+      }
+      setStatus('Cerco su YouTube…');
+      fetch(`/api/youtube-search?q=${encodeURIComponent(q)}`)
+        .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+        .then(({ ok, data }) => {
+          if (!ok) {
+            $('yt-results').hidden = true;
+            setStatus(data.error || 'Ricerca non riuscita.', 'bad');
+            return;
+          }
+          renderYoutubeHits(Array.isArray(data.videos) ? data.videos : []);
+        })
+        .catch(() => {
+          $('yt-results').hidden = true;
+          setStatus('Ricerca YouTube non riuscita.', 'bad');
+        });
     }
 
     function videoCommand(func) {
@@ -1642,10 +2018,12 @@
       timer = null;
       scheduled.length = 0;
       $('start').disabled = false;
-      clearFollow();
       videoCommand('pauseVideo');
       if (reason) $('count').textContent = reason;
       else if (shownBeat < 0) $('count').textContent = 'Fermo';
+      // Playback already painted this beat. Leave the mark and the scroll there.
+      if (shownBeat >= 0 && reason !== 'Inizio') return;
+      clearFollow();
       if (reason !== 'Inizio' && (isImageMode() ? spanForBeat((startBarNumber() - 1) * beatsPerBar() + playBeat + 1) : startBarNumber() > 1)) {
         showFollow(startBarNumber(), playBeat, beatsPerBar());
       }
@@ -1672,8 +2050,11 @@
     $('start').addEventListener('click', startAll);
     $('stop').addEventListener('click', () => stopAll('Fermo'));
     $('yt-load').addEventListener('click', loadVideo);
+    $('yt-search').addEventListener('click', searchYoutube);
     $('yt-url').addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter') loadVideo();
+      if (ev.key !== 'Enter') return;
+      if (youtubeId($('yt-url').value)) loadVideo();
+      else searchYoutube();
     });
     $('tab-load').addEventListener('click', loadTab);
     $('tab-url').addEventListener('keydown', (ev) => {
@@ -1741,6 +2122,15 @@
     });
     $('draw-line').addEventListener('click', () => {
       drawMode = !drawMode;
+      if (drawMode) noteMode = false;
+      $('draw-line').classList.toggle('on', drawMode);
+      $('draw-note').classList.toggle('on', noteMode);
+      renderSheets();
+    });
+    $('draw-note').addEventListener('click', () => {
+      noteMode = !noteMode;
+      if (noteMode) drawMode = false;
+      $('draw-note').classList.toggle('on', noteMode);
       $('draw-line').classList.toggle('on', drawMode);
       renderSheets();
     });
@@ -1760,14 +2150,16 @@
     });
     $('new-sheet').addEventListener('click', () => {
       const hasWork = sheetPages.length > 0;
-      if (hasWork && !confirm('Ripartire da zero? Immagini e righi verranno tolti. Esporta prima se vuoi tenerli.')) return;
+      if (hasWork && !confirm('Ripartire da zero? Immagini, righi e appunti verranno tolti. Esporta prima se vuoi tenerli.')) return;
       if (running) stopAll('Fermo');
       closeLineEditor();
       sheetPages.forEach((page) => URL.revokeObjectURL(page.url));
       sheetPages = [];
       clearSheetMark();
       drawMode = false;
+      noteMode = false;
       $('draw-line').classList.remove('on');
+      $('draw-note').classList.remove('on');
       [bpm, precount, $('line-beats')].forEach((input) => { input.value = input.defaultValue; });
       stepBar = 1;
       playFrom = 1;

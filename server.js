@@ -4,7 +4,8 @@
  * l'iframe diretto. Qui la stessa pagina viene richiesta dal server e
  * rimandata senza quell'header, così l'iframe può mostrarla e scorrerla.
  *
- * Solo 127.0.0.1. Inoltra soltanto verso songsterr.com.
+ * Solo 127.0.0.1. Inoltra le pagine verso songsterr.com.
+ * /api/youtube-search interroga YouTube e restituisce i video trovati.
  */
 const express = require('express');
 const https = require('https');
@@ -525,11 +526,99 @@ function proxySongsterr(clientReq, clientRes, targetUrl, redirects = 0) {
   else upstream.end();
 }
 
+function youtubeText(node) {
+  if (!node) return '';
+  if (typeof node.simpleText === 'string') return node.simpleText;
+  if (Array.isArray(node.runs)) return node.runs.map((run) => run.text || '').join('');
+  return '';
+}
+
+function youtubeVideos(raw) {
+  const data = JSON.parse(raw);
+  const sections = data?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents || [];
+  const videos = [];
+  for (const section of sections) {
+    const items = section?.itemSectionRenderer?.contents || [];
+    for (const item of items) {
+      const video = item.videoRenderer;
+      if (!video?.videoId) continue;
+      videos.push({
+        id: video.videoId,
+        title: youtubeText(video.title),
+        channel: youtubeText(video.ownerText),
+        length: youtubeText(video.lengthText),
+      });
+      if (videos.length >= 8) return videos;
+    }
+  }
+  return videos;
+}
+
+function youtubeSearch(query) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({
+      context: {
+        client: {
+          clientName: 'WEB',
+          clientVersion: '2.20241126.01.00',
+          hl: 'it',
+          gl: 'IT',
+        },
+      },
+      query,
+    });
+    const req = https.request(
+      {
+        hostname: 'www.youtube.com',
+        path: '/youtubei/v1/search?prettyPrint=false',
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'content-length': Buffer.byteLength(body),
+          'user-agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          'accept-language': 'it-IT,it;q=0.9',
+        },
+      },
+      (res) => {
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => {
+          if (res.statusCode !== 200) {
+            reject(new Error(`YouTube ${res.statusCode}`));
+            return;
+          }
+          try {
+            resolve(youtubeVideos(Buffer.concat(chunks).toString('utf8')));
+          } catch (err) {
+            reject(err);
+          }
+        });
+      }
+    );
+    req.on('error', reject);
+    req.setTimeout(12000, () => req.destroy(new Error('timeout YouTube')));
+    req.write(body);
+    req.end();
+  });
+}
+
 const app = express();
 const page = path.join(__dirname, 'public', 'index.html');
 
 app.get('/', (_req, res) => {
   res.sendFile(page);
+});
+
+app.get('/api/youtube-search', (req, res) => {
+  const q = String(req.query.q || '').trim().slice(0, 120);
+  if (q.length < 2) {
+    res.status(400).json({ error: 'Scrivi almeno due caratteri.' });
+    return;
+  }
+  youtubeSearch(q)
+    .then((videos) => res.json({ videos }))
+    .catch(() => res.status(502).json({ error: 'Ricerca YouTube non riuscita.' }));
 });
 
 app.use((req, res) => {
